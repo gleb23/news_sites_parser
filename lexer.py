@@ -70,6 +70,8 @@ class Lexer(object):
 
     def __init__(self, source):
         self.source = source.strip()
+        self.last_new_line = -1
+        self.n_new_lines = 0 # current symbol in line
 
     def next_token(self):
         if not self.next_available():
@@ -79,6 +81,9 @@ class Lexer(object):
             current_sym = self.source[self.current_pos]
             if self.ignoring_sequence == None and self.double_sign == None:
                 if current_sym in self.ignorable_delimiters:
+                    if current_sym == '\n':
+                        self.n_new_lines += 1
+                        self.last_new_line = self.current_pos
                     if self.current_pos > self.current_token_start:
                         to_return = self.source[self.current_token_start:self.current_pos]
                     self.current_pos += 1
@@ -113,7 +118,10 @@ class Lexer(object):
                     self.current_pos = self.current_token_start
                 self.ignoring_sequence = None
             elif self.double_sign != None:
-                #delimiter consists of two symbols
+                if current_sym == '\n':
+                    self.n_new_lines += 1
+                    self.last_new_line = self.current_pos
+                    #delimiter consists of two symbols
                 if current_sym in self.double_sign_delimiters[self.double_sign]:
                     to_return = self.double_sign + current_sym
                     self.current_token_start = self.current_pos + 1
@@ -126,14 +134,28 @@ class Lexer(object):
             if self.ignoring_list.has_key(to_return):
                 self.ignoring_sequence = to_return
 
-        return to_return
+        return (to_return, (self.n_new_lines, self.current_pos - self.last_new_line))
 
     def next_available(self):
         return self.current_pos < len(self.source)
 
+class PreprocessedLexer(Lexer):
+    def __init__(self, token_list):
+        super(PreprocessedLexer, self).__init__()
+        self.token_list = token_list
+        self.current_token_number = 0
+
+    def next_token(self):
+        self.current_token_number += 1
+        return self.token_list[self.current_token_number - 1]
+
+    def next_available(self):
+        return self.current_token_number < len(self.token_list)
+
 lexer = Lexer(ss)
 while lexer.next_available():
     print lexer.next_token()
+
 
 
 

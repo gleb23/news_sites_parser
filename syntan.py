@@ -1,311 +1,703 @@
-from errors import UnexpectedIdentifierError, ErrorInExpression, UnknownIdentifierError, VariableNotInitializedError, IndexOutOfBoundsError
+from bricks import If, WhileLoop, ReturnExpression, Array, SimpleType, AssignmentOperator, Function, FunctionCall, Block, Expression, BinaryOperator, Sum
+from errors import UnexpectedIdentifierError, ErrorInExpression, UnknownIdentifierError, VariableNotInitializedError, IndexOutOfBoundsError, FunctionMustReturnSomethingError, EmptyBracketsAreNotAllowedError, ArrayMustHaveFixedSizeError, IdentifierAlreadyExistsError
 from lexer import Lexer
 
 __author__ = 'gleb23'
 
-class Type(object):
-    def __init__(self):
-        super(Type, self).__init__()
+# = 3
+# if (a) {
+#     int myprint(int a) {
+# return a * a;
+# }
+# myprint(a);
+# }
 
-class SimpleType(Type):
-    def __init__(self, value):
-        super(SimpleType, self).__init__()
-        self.value = value
+source = '''
+int a
+'''
 
-    def execute(self):
-        return self.value
+operator_priorities = [
+    ['+', '-'],
+    ['*', '/', '%']
+]
 
-class Int(SimpleType):
-    def __init__(self, value):
-        super(Int, self).__init__(value)
-
-class Bool(Type):
-    def __init__(self, value):
-        super(Bool, self).__init__(value)
-
-class String(Type):
-    def __init__(self, value):
-        super(String, self).__init__(value)
-
-class Array(Type):
-    def __init__(self, baseType, size):
-        super(Array, self).__init__()
-        self.baseType = baseType
-        self.buffer = []
-        for i in range(size):
-            self.buffer.append(baseType())
-
-    def get(self, ind):
-        if (ind > 0 and ind < self.buffer.__len__()):
-            raise IndexOutOfBoundsError(position, ind)
-        return self.buffer[ind]
-
-class Expression(object):
-    def __init__(self):
-        super(object, self).__init__()
-
-    def execute(self):
-        return 0; #stub
-
-class Constant(Expression):
-    def __init__(self, type, value):
-        super(Constant, self).__init__()
-        self.type = type(value)
-        self.value = value
-
-    def execute(self):
-        return self.value
-
-class Variable(Expression):
-    def __init__(self, type, name):
-        super(Variable, self).__init__()
-        self.type = type
-        self.name = name
-        self.value = None
-
-    def execute(self):
-        if self.value is None:
-            raise VariableNotInitializedError(position, self.name)
-        return self.value
-
-class FunctionCall(Expression):
-    def __init__(self, function, args):
-        super(FunctionCall, self).__init__()
-        self.function = type(function)
-        self.args = args
-
-    def execute(self):
-        for i in range (len(self.function.params)):
-            self.function.param.value[i] = self.args[i]
-        return self.function.execute()
-
-class ReturnExpression(object):
-    def __init__(self):
-        self.exp = None
-
-    def execute(self):
-        self.exp.execute()
-
-class BinaryOperator(Expression):
-    def __init__(self, exp1, exp2):
-        super(BinaryOperator, self).__init__()
-        self.exp1 = exp1
-        self.exp2 = exp2
-
-class Sum(BinaryOperator):
-    def __init__(self, exp1, exp2):
-        super(Sum, self).__init__(exp1, exp2)
-
-    def execute(self):
-        pass
-
-class Condition(object):
-    def execute(self):
-        return True; #stub
-
-# FLOW
-
-class Instruction(object):
-    pass
-
-class Block(object):
-    def __init__(self, parentBlock):
-        super(Block, self).__init__()
-        self.context = Context()
-        self.instructions = []
-        self.parentBlock = parentBlock
-
-    def execute(self):
-        for instruction in self.instructions:
-            res = instruction.execute()
-            if res is not None:
-                return res
+def searchIdentifier(currentBlock, identifier):
+    '''
+    searches for identifier <code>identifier</code> in current scope or higher
+    '''
+    if currentBlock is None:
         return None
+    if currentBlock.context.functions.has_key(identifier):
+        return currentBlock.context.functions[identifier]
+    if currentBlock.context.variables.has_key(identifier):
+        return currentBlock.context.variables[identifier]
+    return searchIdentifier(currentBlock.parentBlock, identifier)
 
-class WhileLoop(object):
-    def __init__(self, condition, body):
-        self.condition = condition
-        self.body = body
+def build_expression_tree(reverse_expression_list, bracket_state = 0):
+    def split(reverse_expression_list, index, Operator):
+        exp = Operator()
+        exp.exp1 = build_expression_tree(reverse_expression_list[index + 1:], bracket_state)
+        exp.exp2 = build_expression_tree(reverse_expression_list[:index], bracket_state)
+        return exp
 
-    def execute(self):
-        while self.condition.execute() == True:
-            self.body.execute
-
-class If(object):
-    def __init__(self, condition, body):
-        self.condition = condition
-        self.body = body
-
-    def execute(self):
-        if self.condition == True:
-            self.body.execute()
-
-
-class Context(object):
-    variables = []
-    functions = []
-
-class Function(object):
-    def __init__(self, name, parentBlock = None):
-        self.name = name
-        self.params = []
-        self.returnType
-        self.block = Block(parentBlock)
-
-    def execute(self):
-        for param in self.params:
-            assert param.value is not None
-        return self.block.execute()
+    if len(reverse_expression_list) == 1:
+        return reverse_expression_list[0]
+    while True:
+        for i in range(len(operator_priorities)):
+            for j in range(len(operator_priorities[i])):
+                try:
+                    ind = reverse_expression_list.index(operator_priorities[i][j], bracket_state)
+                    if reverse_expression_list[ind] == '+':
+                        return split(reverse_expression_list, ind, Sum)
+                except ValueError:
+                    pass
+        reverse_expression_list = reverse_expression_list[1:len(reverse_expression_list) -1]
+        bracket_state += 1
 
 
-class AssignmentOperator(object):
+
+class CurrentDataSet(object):
     def __init__(self):
-        self.variable = None
-        self.exp = None
+        self.current_block = None
+        self.current_flow_object = None
+        self.current_identifier = None
+        self.var_type = None
+        self.current_function = None
+        self.expression_list = []
+        self.bracket_state = 0
+        self.expression_type = None
 
-    def execute(self):
-        self.variable.value = self.exp.execute()
+
+class State(object):
+    def process_opening_curly_bracket(self, data_set, position):
+        raise UnexpectedIdentifierError('{')
+
+    def process_closing_curly_bracket(self, data_set, position):
+        raise UnexpectedIdentifierError('}')
+
+    def process_opening_square_bracket(self, data_set, position):
+        raise UnexpectedIdentifierError('[')
+
+    def process_closing_square_bracket(self, data_set, position):
+        raise UnexpectedIdentifierError(']')
+
+    def process_opening_bracket(self, data_set, position):
+        raise UnexpectedIdentifierError('(')
+
+    def process_closing_bracket(self, data_set, position):
+        raise UnexpectedIdentifierError(')')
+
+    def process_comma(self, data_set, position):
+        raise UnexpectedIdentifierError(',')
+
+    def process_semicolon(self, data_set, position):
+        raise UnexpectedIdentifierError(';')
+
+    def process_if(self, data_set, position):
+        raise UnexpectedIdentifierError( 'if')
+
+    def process_while(self, data_set, position):
+        raise UnexpectedIdentifierError('while')
+
+    def process_return(self, data_set, position):
+        raise UnexpectedIdentifierError('return')
+
+    def process_identifier(self, data_set, position):
+        raise UnexpectedIdentifierError(data_set.current_identifier)
+
+    def process_basic_data_type(self, data_set, position):
+        raise UnexpectedIdentifierError(data_set.current_identifier)
+
+    #def process_assignment(self, data_set, position)
+
+
+################################################
+###### EXPRESSION ###########################
+################################################
+class AfterExpressionOpenBracket(State):
+    '''
+    example
+    ...
+    a = (... <-
+    ...
+
+    '''
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+    #def process_opening_square_bracket(self, data_set, position)
+    #def process_closing_square_bracket(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        data_set.expression.bracket_state += 1
+        data_set.expression_list.append('(')
+        return AfterExpressionOpenBracket(), data_set
+
+    def process_closing_bracket(self, data_set, position):
+        raise EmptyBracketsAreNotAllowedError()
+
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    # def process_identifier(self, data_set, position)
+    # def process_basic_data_type(self, data_set, position):
+
+    def process_identifier(self, data_set, position):
+        type = searchIdentifier(data_set.currentBlock, data_set.current_identifier)
+        if type is None:
+            raise UnknownIdentifierError()
+        if isinstance(type, Array):
+            raise NotImplemented()
+        elif isinstance(type, SimpleType):
+            data_set.expression_list.append(data_set.current_identifier)
+            return AfterExpressionOperand(), data_set
+        elif isinstance(type, Function):
+            data_set.current_function = Function()
+            data_set.expression_list.append(data_set.current_function)
+            return AfterFunctionCallNameState(), data_set
+        else:
+            assert False
+
+    #def process_assignment(self, data_set, position)
+
+class AfterExpressionOperator(State):
+    '''
+    example
+    ...
+    a = (a +... <-
+    ...
+
+    '''
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+    #def process_opening_square_bracket(self, data_set, position)
+    #def process_closing_square_bracket(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        data_set.expression.bracket_state += 1
+        data_set.expression_list = '('
+        return (AfterExpressionOpenBracket, data_set)
+
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    # def process_identifier(self, data_set, position)
+    # def process_basic_data_type(self, data_set, position):
+
+    def process_identifier(self, data_set, position):
+        type = searchIdentifier(data_set.currentBlock, data_set.current_identifier)
+        if type is None:
+            raise UnknownIdentifierError()
+        if isinstance(type, Array):
+            raise NotImplemented()
+        elif isinstance(type, SimpleType):
+            data_set.expression_list.append(data_set.current_identifier)
+            return AfterExpressionOperand(), data_set
+        elif isinstance(type, Function):
+            data_set.current_function = Function()
+            data_set.expression_list.append(data_set.current_function)
+            return AfterFunctionCallNameState(), data_set
+        else:
+            assert False
+
+    #def process_assignment(self, data_set, position)
+
+
+class AfterExpressionOperand(State):
+    # def process_opening_curly_bracket(self, data_set, position)
+    # def process_closing_curly_bracket(self, data_set, position)
+    # def process_opening_square_bracket(self, data_set, position)
+    # def process_closing_square_bracket(self, data_set, position)
+    # def process_opening_bracket(self, data_set, position)
+    def process_closing_bracket(self, data_set, position):
+        if data_set.bracket_state >0:
+            data_set.bracket_state -= 1
+            data_set.expression_list.append(')')
+            return AfterExpressionOperand(), data_set
+        elif data_set.bracket_state <= 0:
+            return UnexpectedIdentifierError(')')
+
+    def process_comma(self, data_set, position):
+        if data_set.bracket_state == 0:
+            if data_set.expression_type == 'function_param':
+                return AfterFunctionCallOpenBracketState(), data_set
+            else:
+                raise UnexpectedIdentifierError(',')
+        else:
+            raise UnexpectedIdentifierError(',')
+
+    def process_semicolon(self, data_set, position):
+        if data_set.bracket_state == 0:
+            if data_set.expression_type == 'return_expression':
+                return InitialState(), data_set
+            else:
+                raise UnexpectedIdentifierError(';')
+        else:
+            raise UnexpectedIdentifierError(';')
+
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    # def process_identifier(self, data_set, position)
+    # def process_basic_data_type(self, data_set, position):
+    #def process_assignment(self, data_set, position)
+
+###################################################
+######### FUNCTION CALL #########################
+##################################################
+
+class AfterFunctionCallOpenBracketState(State):
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+    #def process_opening_square_bracket(self, data_set, position)
+    #def process_closing_square_bracket(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        data_set.bracket_state += 1
+        data_set.expression_list.append('(')
+        return AfterExpressionOpenBracket(), data_set
+
+    def process_closing_bracket(self, data_set, position):
+        # function has no parameters
+        # check whether this coinside with func declaration should be later
+        return AfterExpressionOperand(), data_set
+
+    def process_identifier(self, data_set, position):
+        data_set.expression_list.append(data_set.current_identifier)
+        return AfterExpressionOperand(), data_set
+
+    #def process_basic_data_type(self, data_set, position)
+    #def process_assignment(self, data_set, position)
+
+
+class AfterFunctionCallNameState(State):
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+    #def process_opening_square_bracket(self, data_set, position)
+    #def process_closing_square_bracket(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        data_set.expression_type = 'function_param'
+        return (AfterFunctionCallOpenBracketState(), data_set)
+
+    # def process_closing_bracket(self, data_set, position):
+    # def process_comma(self, data_set, position)
+    # def process_semicolon(self, data_set, position)
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    # def process_identifier(self, data_set, position):
+    # def process_basic_data_type(self, data_set, position)
+    #def process_assignment(self, data_set, position)
+
+
+###################################################
+##################  FLOW #########################
+##################################################
+
+class InitialState(State):
+
+    def process_opening_curly_bracket(self, data_set, position):
+        newBlock = Block(data_set.currentBlock)
+        data_set.currentBlock.instructions.append(newBlock)
+        data_set.currentBlock = newBlock
+        return InitialState(), data_set
+
+    def process_closing_curly_bracket(self, data_set, position):
+        currentBlock = data_set.currentBlock.parentBlock
+        if data_set.currentBlock is None:
+            raise UnexpectedIdentifierError('}')
+        return InitialState(), data_set
+
+    # def process_opening_square_bracket(self, data_set, position):
+    # def process_closing_square_bracket(self, data_set, position):
+    # def process_opening_bracket(self, data_set, position):
+    # def process_closing_bracket(self, data_set, position):
+    # def process_comma(self, data_set, position):
+    # def process_semicolon(self, data_set, position):
+
+    def process_if(self, data_set, position):
+        data_set.currentIf = If()
+        data_set.current_block.instructions.append(data_set.currentIf)
+        return AfterIfWhileState(), data_set
+
+    def process_while(self, data_set, position):
+        data_set.current_while_loop = WhileLoop()
+        data_set.current_block.instructions.append(data_set.currentWhileLoop)
+        return AfterIfWhileState(), data_set
+
+    def process_return(self, data_set, position):
+        data_set.expression
+        return (AfterReturnWordState(), data_set)
+
+    def process_identifier(self, data_set, position):
+    # this identifier is earlier declared: it must be function or variable in the
+        # current scope or higher
+        obj = searchIdentifier(data_set.current_block, data_set.current_identifier)
+        if obj is None:
+            raise UnknownIdentifierError(data_set.current_identifier)
+        if isinstance(obj, SimpleType):
+            # assignment
+            return (AfterSVariableAtStartState(), data_set)
+        elif isinstance(obj, Array):
+            # assignment
+            return (AfterArrayAtStartState(), data_set)
+        elif isinstance(obj, Function):
+            #function call
+            current_func_call = FunctionCall()
+            data_set.current_block.instructions.append(current_func_call)
+            return AfterFunctionCallNameState(), data_set
+
+    def process_basic_data_type(self, data_set, position):
+         return AfterSTypeInDeclState(), data_set
+    #def process_assignment(self, data_set, position)
+
+
+class AfterReturnWordState(State):
+    '''
+    example
+    ...
+    return ... <-
+    ...
+
+    '''
+    # def process_opening_curly_bracket(self, data_set, position)
+    # def process_closing_curly_bracket(self, data_set, position)
+    # def process_opening_square_bracket(self, data_set, position)
+    # def process_closing_square_bracket(self, data_set, position)
+    def process_opening_bracket(self, data_set, position):
+        data_set.expression.expression_type = 'return_expression'
+        return AfterExpressionOpenBracket(), data_set
+
+    # def process_closing_bracket(self, data_set, position)
+    # def process_comma(self, data_set, position)
+    def process_semicolon(self, data_set, position):
+        raise FunctionMustReturnSomethingError(';')
+
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+
+    def process_identifier(self, data_set, position):
+        data_set.expression.expression_type = 'return_value'
+        data_set.expression.expression_list.append(data_set.current_identifier)
+        return (AfterExpressionOperand(), data_set)
+
+    # def process_basic_data_type(self, data_set, position):
+    #def process_assignment(self, data_set, position)
+
+class AfterIfWhileState(State):
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+    #def process_opening_square_bracket(self, data_set, position)
+    #def process_closing_square_bracket(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        data_set.expression_type = 'predicate'
+        return AfterIfWhileOpenBracketState(), data_set
+
+    # def process_closing_bracket(self, data_set, position):
+    # def process_comma(self, data_set, position)
+    # def process_semicolon(self, data_set, position)
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    # def process_identifier(self, data_set, position):
+    # def process_basic_data_type(self, data_set, position):
+    #def process_assignment(self, data_set, position)
+
+class AfterIfWhileOpenBracketState(State):
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+    #def process_opening_square_bracket(self, data_set, position)
+    #def process_closing_square_bracket(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        data_set.bracket_state += 1
+        data_set.expression_list.append('(')
+        return AfterExpressionOpenBracket(), data_set
+
+    def process_closing_bracket(self, data_set, position):
+        # function has no parameters
+        # check whether this coinside with func declaration should be later
+        raise EmptyBracketsAreNotAllowedError()
+
+    def process_identifier(self, data_set, position):
+        type = searchIdentifier(data_set.current_block, data_set.current_identifier)
+        if type is None:
+            raise UnknownIdentifierError()
+        if isinstance(type, Array):
+            raise NotImplemented()
+        elif isinstance(type, SimpleType):
+            data_set.expression_list.append(data_set.current_identifier)
+            return AfterExpressionOperand(), data_set
+        elif isinstance(type, Function):
+            data_set.current_function = Function()
+            data_set.expression_list.append(data_set.current_function)
+            return AfterFunctionCallNameState(), data_set
+        else:
+            assert False
+
+    # def process_basic_data_type(self, data_set, position)
+    #def process_assignment(self, data_set, position)
+
+
+###################################################
+#############  ASSIGNMENT #########################
+##################################################
+
+class AfterAssignmentSign(State):
+    '''
+    example
+    ...
+    int b = 5;
+    b =...<-
+    ...
+
+    '''
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        data_set.expression.expression_type = 'assignment_value'
+        return AfterExpressionOpenBracket(), data_set
+
+    # def process_closing_bracket(self, data_set, position)
+    # def process_comma(self, data_set, position)
+    #def process_semicolon(self, data_set, position)
+
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+
+    def process_identifier(self, data_set, position):
+        data_set.expression.expression_type = 'assignment_value'
+        data_set.expression.expression_list.append(data_set.current_identifier)
+        return (AfterExpressionOperand(), data_set)
+
+    # def process_basic_data_type(self, data_set, position):
+    # def process_assignment(self, data_set, position):
+
+class AfterSVariableAtStartState(State):
+    '''
+    example
+    ...
+    int b = 5;
+    b ...<-
+    ...
+
+    '''
+    #def process_opening_curly_bracket(self, data_set, position)
+    #def process_closing_curly_bracket(self, data_set, position)
+
+    def process_opening_square_bracket(self, data_set, position):
+        return (AfterArrayDeclOpenSquareBracket(), data_set)
+
+    #def process_closing_square_bracket(self, data_set, position):
+
+    #def process_opening_bracket(self, data_set, position)
+    #def process_closing_bracket(self, data_set, position)
+    #def process_comma(self, data_set, position)
+    #def process_semicolon(self, data_set, position):
+
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+
+    def process_identifier(self, data_set, position):
+        # create varable #TODO
+        return AfterNameInSTypeDeclState(), data_set
+
+    # def process_basic_data_type(self, data_set, position):
+    def process_assignment(self, data_set, position):
+        data_set.current_assignment = AssignmentOperator()
+        data_set.current_assignment.variable = data_set.current_identifier
+        data_set.current_block.instructions.append(data_set.current_assignment)
+        return AfterAssignmentSign(), data_set
+
+# class AfterIfWhileState(object):
+#     def process(token, current_data_set):
+#
+# class AfterIfWhileState(object):
+#     def process(token, current_data_set):
+
+class AfterArrayAtStartState(State):
+    '''
+
+    example:
+    int[6] arr
+    ...
+    arr <-
+    ...
+
+    '''
+    # def process_opening_curly_bracket(self, data_set, position)
+    # def process_closing_curly_bracket(self, data_set, position)
+
+    def process_opening_square_bracket(self, data_set, position):
+        #TODO WHy???
+        raise UnexpectedIdentifierError('[')
+
+    # def process_closing_square_bracket(self, data_set, position)
+    # def process_opening_bracket(self, data_set, position)
+    # def process_closing_bracket(self, data_set, position)
+    # def process_comma(self, data_set, position)
+    # def process_semicolon(self, data_set, position)
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    # def process_identifier(self, data_set, position)
+    #def process_basic_data_type(self, data_set, position):
+    # #def process_assignment(self, data_set, position)
+
+
+###################################################
+##################  DECLARATIONS #########################
+##################################################
+
+
+class AfterArrayDeclOpenSquareBracket(State):
+    # def process_opening_curly_bracket(self, data_set, position)
+    # def process_closing_curly_bracket(self, data_set, position)
+    # def process_opening_square_bracket(self, data_set, position)
+    def process_closing_square_bracket(self, data_set, position):
+        raise ArrayMustHaveFixedSizeError(position, data_set.current_identifier)
+    # def process_opening_bracket(self, data_set, position)
+    # def process_closing_bracket(self, data_set, position)
+    # def process_comma(self, data_set, position)
+    # def process_semicolon(self, data_set, position)
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+
+    def process_identifier(self, data_set, position):
+        #TODO implement checking whether identifier is constant
+        raise NotImplemented()
+
+    # def process_basic_data_type(self, data_set, position):
+    #def process_assignment(self, data_set, position)
+
+
+
+class AfterNameInSTypeDeclState(State):
+    '''
+    example
+    ...
+    int b = 5;
+    int c ...<-
+    ...
+
+    '''
+    # def process_opening_curly_bracket(self, data_set, position)
+    # def process_closing_curly_bracket(self, data_set, position)
+    # def process_opening_square_bracket(self, data_set, position)
+    # def process_closing_square_bracket(self, data_set, position)
+    # def process_opening_bracket(self, data_set, position)
+    # def process_closing_bracket(self, data_set, position)
+    # def process_comma(self, data_set, position)
+    def process_semicolon(self, data_set, position):
+        return (InitialState(), data_set)
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    #def process_identifier(self, data_set, position)
+    #def process_basic_data_type(self, data_set, position):
+    def process_assignment(self, data_set, position):
+        return AfterAssignmentSign(), data_set
+
+
+class AfterSTypeInDeclState(State):
+    '''
+    example
+    ...
+    int b = 5;
+    int ...<-
+    ...
+
+    '''
+    # def process_opening_curly_bracket(self, data_set, position)
+    # def process_closing_curly_bracket(self, data_set, position)
+    def process_opening_square_bracket(self, data_set, position):
+        return (AfterArrayDeclOpenSquareBracket(), data_set)
+    # def process_closing_square_bracket(self, data_set, position)
+    # def process_opening_bracket(self, data_set, position)
+    # def process_closing_bracket(self, data_set, position)
+    # def process_comma(self, data_set, position)
+    # def process_semicolon(self, data_set, position)
+    # def process_if(self, data_set, position)
+    # def process_while(self, data_set, position)
+    # def process_return(self, data_set, position)
+    def process_identifier(self, data_set, position):
+        type = searchIdentifier(data_set.current_block, data_set.current_identifier)
+        if type is None:
+            data_set.current_block.context.variables[data_set.current_identifier] = eval(data_set.var_type+'()')
+            return AfterNameInSTypeDeclState(), data_set
+        else:
+            raise IdentifierAlreadyExistsError(position)
+    #def process_basic_data_type(self, data_set, position)
+    #def process_assignment(self, data_set, position)
 
 
 class Syntan(object):
-    basic_data_types = ['int', 'bool', 'String']
+    '''
+    # RESTRICTIONS
+    # array size declaration - only number, not constant
+    '''
+    basic_data_types = ['int', 'bool', 'String', 'void']
 
     def __init__(self, source):
         self.source = source
 
     def parse(self):
         mainFunction = Function()
-        lexer = Lexer()
-
-        state = 0
-        currentBlock = mainFunction.block
-        currentFlowObject = None
-        varName = None
-        currentFuncCall = None
-
-        #state = 0 # START
-        #state = 1 # wait for bracket ( before condition (after if, while)
-        #state = 2 # wait for bracket ) before condition (after if, while)
-        #state = 3 # wait for logical expression
-        #state = 10 # after type is given: wait for identifier
-        #state = 11 # after variable name : only assignment
-        #state = 12 # bracket after func name for
-        #state = 14 # after bracket in function call: wait for argument
-        #state = 50 # wait for comma after the end of instruction
+        lexer = Lexer(source)
+        curDataSet = CurrentDataSet()
+        curDataSet.current_block = mainFunction.block
+        state = InitialState()
 
         while lexer.next_available():
             new_token, position = lexer.next_token()
-
-            if new_token == "{":
-                if state == 0:
-                    newBlock =  Block(currentBlock)
-                    currentBlock.instructions.append(newBlock)
-                    currentBlock = newBlock
-                elif state == 3:
-                    raise ErrorInExpression(position, '{')
-                else: # state == 1:
-                    raise UnexpectedIdentifierError(position, '{')
+            #punctuation
+            if new_token == '{':
+                process = state.process_opening_curly_bracket
             elif new_token == '}':
-                if state == 0:
-                    currentBlock = currentBlock.parentBlock
-                    if currentBlock is None:
-                        raise UnexpectedIdentifierError(position, '}')
-                else: # state == 1:
-                    raise UnexpectedIdentifierError(position, '}')
-            elif new_token == 'if':
-                if state == 0:
-                    state = 1
-                    currentFlowObject = If()
-                    currentBlock.instructions.append(currentFlowObject)
-                elif state == 3:
-                    raise ErrorInExpression(position, 'if')
-                else: # state == 1:
-                    raise UnexpectedIdentifierError(position, 'if')
-            elif new_token == ';':
-                if state == 50:
-                    state = 0
-            elif new_token == 'while':
-                if state == 0:
-                    state = 1
-                    currentFlowObject = WhileLoop()
-                    currentBlock.instructions.append(currentFlowObject)
-                elif state == 3:
-                    raise ErrorInExpression(position, 'while')
-                else: # state == 1:
-                    raise UnexpectedIdentifierError(position, 'while')
+                process = state.process_closing_curly_bracket
+            elif new_token == '[':
+                process = state.process_opening_square_bracket
+            elif new_token == ']':
+                process = state.process_closing_square_bracket
             elif new_token == '(':
-                if state == 1:
-                    expressionBuffer = self.getExpression(lexer, ')')
-                    currentFlowObject.condition = self.parseExpression(expressionBuffer)
-                    state = 0
-                elif state == 12:
-                    state == 14
-                else: # state = 0
-                    raise UnexpectedIdentifierError(position, '(')
+                process = state.process_opening_bracket
             elif new_token == ')':
-                if state == 2:
-                    state = 0
-                if state == 14:
-                    state = 50
+                process = state.process_closing_bracket
+            elif new_token == ',':
+                process = state.process_comma
+            elif new_token == ';':
+                process = state.process_semicolon
+            #reserved words
+            elif new_token == 'if':
+                process = state.process_if
+            elif new_token == 'while':
+                process = state.process_while
+            elif new_token == 'return':
+                process = state.process_return
             elif new_token in self.basic_data_types:
-                if state == 0:
-                    #declaration
-                    state = 10
-            elif new_token == '=':
-                if state == 11:
-                    assOp = AssignmentOperator()
-                    currentBlock.instructions.append(assOp)
-                    assOp.variable = varName
-                    exp = self.parseExpression(self.getExpression(lexer, ';'))
-                    assOp.exp = exp
-                    state = 0
-                else: #state = 0
-                    raise UnexpectedIdentifierError(position, '=')
-            else: #any identifier
-                if state == 0:
-                    # this identifier is earlier declared: it must be function or variable in the
-                    # current scope or higher
-                    obj = self.searchIdentifier(new_token)
-                    if obj is None:
-                        raise UnknownIdentifierError(position, new_token)
-                    if isinstance(obj, Variable):
-                        # assignment
-                        state == 11
-                        varName = new_token
-                    elif isinstance(obj, Function):
-                        #function call
-                        state = 12
-                        currentFuncCall = FunctionCall()
-                        currentBlock.instructions.append(currentFuncCall)
-                elif state == 14:
-                    currentFuncCall.args.append(self.parseExpression(self.getExpression(lexer, ',')))
+                curDataSet.var_type = new_token
+                process = state.process_basic_data_type
+            else:
+                curDataSet.current_identifier = new_token
+                process = state.process_identifier
+
+            state, curDataSet = process(curDataSet, position)
+            return mainFunction
 
 
 
+s = Syntan(source)
+# try:
+print s.parse()
+# except UnknownIdentifierError, e:
+#     print '!!! %s' %e
 
-
-
-
-
-
-        return mainFunction
-
-    def getExpression(self, lexer, endSign):
-        pass
-
-    def parseExpression(self, expressionBuffer):
-        pass
-
-    def searchIdentifier(self, currentBlock, identifier):
-        '''
-        searches for identifier <code>identifier</code> in current scope or higher
-        '''
-        for function in currentBlock.context.functions:
-            if function.name == identifier:
-                return function
-        for var in currentBlock.context.variables:
-            if var.name == identifier:
-                return var
-        return self.searchIdentifier(currentBlock.parentBlock, identifier)
-
+# my_list = ['a', '+', Function(), '+', 'c']
+# print build_expression_tree(my_list)
 
