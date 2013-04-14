@@ -1,4 +1,4 @@
-from errors import IndexOutOfBoundsError
+from errs import IndexOutOfBoundsError
 
 __author__ = 'gleb23'
 
@@ -19,7 +19,7 @@ class SimpleType(Type):
         return self.value
 
 class Int(SimpleType):
-    def __init__(self, value):
+    def __init__(self, value = 0):
         super(Int, self).__init__(value)
 
     def setx(self, value):
@@ -33,7 +33,7 @@ class Int(SimpleType):
 
 
 class Bool(SimpleType):
-    def __init__(self, value):
+    def __init__(self, value = False):
         super(Bool, self).__init__(value)
 
     def setx(self, value):
@@ -45,7 +45,7 @@ class Bool(SimpleType):
     value = property(SimpleType.getx, setx)
 
 class String(SimpleType):
-    def __init__(self, value):
+    def __init__(self, value = ""):
         super(String, self).__init__(value)
         self._x = None
 
@@ -206,7 +206,18 @@ class Context(object):
     functions = {}
 
     def __str__(self):
-        return 'Context'
+        s = 'Context:{'
+        s += '\nConstants: '
+        for con in self.constants.keys():
+            s += (con + " : " + str(self.constants[con]))
+        s += '\nVariables: '
+        for v in self.variables.keys():
+            s += (v + " : " + str(self.variables[v]))
+        s += '\nFunctions: '
+        for f in self.functions.keys():
+            s += (f + " : " + str(self.functions[f]))
+        s += '\n}'
+        return s
 
 class Function(object):
     def __init__(self, name = None, parentBlock = None):
@@ -239,3 +250,10 @@ class AssignmentOperator(object):
 
     def execute(self):
         self.variable.value = self.exp.execute()
+
+class PrintOperator(object):
+    def __init__(self):
+        self.value = None
+
+    def execute(self):
+        print self.value

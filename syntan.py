@@ -1,6 +1,7 @@
-from bricks import If, WhileLoop, ReturnExpression, Array, SimpleType, AssignmentOperator, Function, FunctionCall, Block, Expression, BinaryOperator, Sum
-from errors import UnexpectedIdentifierError, ErrorInExpression, UnknownIdentifierError, VariableNotInitializedError, IndexOutOfBoundsError, FunctionMustReturnSomethingError, EmptyBracketsAreNotAllowedError, ArrayMustHaveFixedSizeError, IdentifierAlreadyExistsError
+from bricks import Int, String, Bool, If, WhileLoop, ReturnExpression, Array, SimpleType, AssignmentOperator, Function, FunctionCall, Block, Expression, BinaryOperator, Sum
+from errs import UnexpectedIdentifierError, ErrorInExpression, UnknownIdentifierError, VariableNotInitializedError, IndexOutOfBoundsError, FunctionMustReturnSomethingError, EmptyBracketsAreNotAllowedError, ArrayMustHaveFixedSizeError, IdentifierAlreadyExistsError
 from lexer import Lexer
+import bricks
 
 __author__ = 'gleb23'
 
@@ -13,7 +14,9 @@ __author__ = 'gleb23'
 # }
 
 source = '''
-int a
+int a = 3
+print a
+
 '''
 
 operator_priorities = [
@@ -41,7 +44,16 @@ def build_expression_tree(reverse_expression_list, bracket_state = 0):
         return exp
 
     if len(reverse_expression_list) == 1:
-        return reverse_expression_list[0]
+        val = reverse_expression_list[0]
+        if isinstance(val, basestring) and val.isdigit():
+            try:
+                return Int(int(float(val)))
+            except ValueError:
+                assert False
+        else:
+            return val
+
+
     while True:
         for i in range(len(operator_priorities)):
             for j in range(len(operator_priorities[i])):
@@ -56,16 +68,26 @@ def build_expression_tree(reverse_expression_list, bracket_state = 0):
 
 
 
+class Subexpression:
+    expression_list = []
+    bracket_state = 0
+    expression_type = None
+
 class CurrentDataSet(object):
     def __init__(self):
         self.current_block = None
         self.current_flow_object = None
+        self.current_return_expression = None
+        self.current_assignment = None
         self.current_identifier = None
+        self.current_arithm_op = None
+        self.current_variable = None
         self.var_type = None
+        self.current_number = ""
+        self.current_string_literal = ""
         self.current_function = None
-        self.expression_list = []
-        self.bracket_state = 0
-        self.expression_type = None
+        self.subexpressions = []
+        self.current_expression = None
 
 
 class State(object):
@@ -108,7 +130,20 @@ class State(object):
     def process_basic_data_type(self, data_set, position):
         raise UnexpectedIdentifierError(data_set.current_identifier)
 
-    #def process_assignment(self, data_set, position)
+    def process_assignment(self, data_set, position):
+        raise UnexpectedIdentifierError('=')
+
+    def process_number(self, data_set, position):
+        raise UnexpectedIdentifierError(data_set.current_identifier)
+
+    def process_string_literal(self, data_set, position):
+        raise UnexpectedIdentifierError(data_set.current_identifier)
+
+    def process_print(self, data_set, position):
+        raise UnexpectedIdentifierError(data_set.current_identifier)
+
+    def process_arithmetic_operations(self, data_set, position):
+        raise UnexpectedIdentifierError(data_set.current_identifier)
 
 
 ################################################
@@ -122,24 +157,14 @@ class AfterExpressionOpenBracket(State):
     ...
 
     '''
-    #def process_opening_curly_bracket(self, data_set, position)
-    #def process_closing_curly_bracket(self, data_set, position)
-    #def process_opening_square_bracket(self, data_set, position)
-    #def process_closing_square_bracket(self, data_set, position)
 
     def process_opening_bracket(self, data_set, position):
-        data_set.expression.bracket_state += 1
-        data_set.expression_list.append('(')
+        data_set.current_expression.bracket_state += 1
+        data_set.current_expression.expression_list.append('(')
         return AfterExpressionOpenBracket(), data_set
 
     def process_closing_bracket(self, data_set, position):
         raise EmptyBracketsAreNotAllowedError()
-
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-    # def process_identifier(self, data_set, position)
-    # def process_basic_data_type(self, data_set, position):
 
     def process_identifier(self, data_set, position):
         type = searchIdentifier(data_set.currentBlock, data_set.current_identifier)
@@ -148,16 +173,27 @@ class AfterExpressionOpenBracket(State):
         if isinstance(type, Array):
             raise NotImplemented()
         elif isinstance(type, SimpleType):
-            data_set.expression_list.append(data_set.current_identifier)
+            data_set.current_expression.expression_list.append(type)
             return AfterExpressionOperand(), data_set
         elif isinstance(type, Function):
-            data_set.current_function = Function()
-            data_set.expression_list.append(data_set.current_function)
+            function_call = FunctionCall()
+            function_call.function = type
+            data_set.current_expression.expression_list.append(function_call)
+            data_set.current_expression = Subexpression()
+            data_set.subexpressions.append(data_set.current_expression)
+            data_set.current_expression.expression_type = "expression_param"
             return AfterFunctionCallNameState(), data_set
         else:
             assert False
 
-    #def process_assignment(self, data_set, position)
+    def process_number(self, data_set, position):
+        data_set.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
+
+    def process_string_literal(self, data_set, position):
+        data_set.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
+
 
 class AfterExpressionOperator(State):
     '''
@@ -167,21 +203,11 @@ class AfterExpressionOperator(State):
     ...
 
     '''
-    #def process_opening_curly_bracket(self, data_set, position)
-    #def process_closing_curly_bracket(self, data_set, position)
-    #def process_opening_square_bracket(self, data_set, position)
-    #def process_closing_square_bracket(self, data_set, position)
 
     def process_opening_bracket(self, data_set, position):
-        data_set.expression.bracket_state += 1
-        data_set.expression_list = '('
-        return (AfterExpressionOpenBracket, data_set)
-
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-    # def process_identifier(self, data_set, position)
-    # def process_basic_data_type(self, data_set, position):
+        data_set.current_expression.bracket_state += 1
+        data_set.current_expression.expression_list.append('(')
+        return AfterExpressionOpenBracket, data_set
 
     def process_identifier(self, data_set, position):
         type = searchIdentifier(data_set.currentBlock, data_set.current_identifier)
@@ -190,35 +216,52 @@ class AfterExpressionOperator(State):
         if isinstance(type, Array):
             raise NotImplemented()
         elif isinstance(type, SimpleType):
-            data_set.expression_list.append(data_set.current_identifier)
+            data_set.current_expression_list.append(type)
             return AfterExpressionOperand(), data_set
         elif isinstance(type, Function):
-            data_set.current_function = Function()
-            data_set.expression_list.append(data_set.current_function)
+            function_call = FunctionCall()
+            function_call.function = type
+            data_set.current_expression.expression_list.append(function_call)
+            data_set.current_expression = Subexpression()
+            data_set.subexpressions.append(data_set.current_expression)
+            data_set.current_expression.expression_type = "expression_param"
             return AfterFunctionCallNameState(), data_set
         else:
             assert False
 
-    #def process_assignment(self, data_set, position)
+    def process_number(self, data_set, position):
+        data_set.current_expression.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
+
+    def process_string_literal(self, data_set, position):
+        data_set.current_expression.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
 
 
 class AfterExpressionOperand(State):
-    # def process_opening_curly_bracket(self, data_set, position)
-    # def process_closing_curly_bracket(self, data_set, position)
-    # def process_opening_square_bracket(self, data_set, position)
-    # def process_closing_square_bracket(self, data_set, position)
-    # def process_opening_bracket(self, data_set, position)
     def process_closing_bracket(self, data_set, position):
-        if data_set.bracket_state >0:
-            data_set.bracket_state -= 1
-            data_set.expression_list.append(')')
+        if data_set.current_expression.bracket_state >0:
+            data_set.current_expression.bracket_state -= 1
+            data_set.current_expression.expression_list.append(')')
             return AfterExpressionOperand(), data_set
-        elif data_set.bracket_state <= 0:
+        elif data_set.current_expression.bracket_state == 0 and data_set.current_expression.expression_type == 'expression_param':
+            func_arg = build_expression_tree(data_set.current_expression.expression_list)
+            data_set.subexpressions.pop()
+            data_set.subexpressions[-1].args.append(func_arg)
+            return AfterExpressionOperand(), data_set
+        else:
             return UnexpectedIdentifierError(')')
 
     def process_comma(self, data_set, position):
+        # end of argument expression
         if data_set.bracket_state == 0:
-            if data_set.expression_type == 'function_param':
+            if data_set.current_expression.expression_type == 'function_param':
+                func_arg = build_expression_tree(data_set.current_expression.expression_list)
+                data_set.subexpressions.pop()
+                data_set.subexpressions[-1].args.append(func_arg)
+                data_set.current_expression = Subexpression()
+                data_set.subexpressions.append(data_set.current_expression)
+                data_set.current_expression.expression_type = 'function_param'
                 return AfterFunctionCallOpenBracketState(), data_set
             else:
                 raise UnexpectedIdentifierError(',')
@@ -226,68 +269,82 @@ class AfterExpressionOperand(State):
             raise UnexpectedIdentifierError(',')
 
     def process_semicolon(self, data_set, position):
-        if data_set.bracket_state == 0:
-            if data_set.expression_type == 'return_expression':
+        if data_set.current_expression.bracket_state == 0:
+            if data_set.current_expression.expression_type == 'return_expression':
+                return_expression = build_expression_tree(data_set.current_expression.expression_list)
+                data_set.subexpressions.pop()
+                data_set.current_return_expression = return_expression
+                return InitialState(), data_set
+            elif data_set.current_expression.expression_type == 'assignment_value':
+                assignment_value = build_expression_tree(data_set.current_expression.expression_list)
+                data_set.subexpressions.pop()
+                data_set.current_assignment.exp = assignment_value         #TODO remove current_expression -> instructions
+                return InitialState(), data_set
+            elif data_set.current_expression.expression_type == 'print_expression':
+                assignment_value = build_expression_tree(data_set.current_expression.expression_list)
+                data_set.subexpressions.pop()
+                data_set.current_block.instructions.value = assignment_value
                 return InitialState(), data_set
             else:
                 raise UnexpectedIdentifierError(';')
         else:
             raise UnexpectedIdentifierError(';')
 
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-    # def process_identifier(self, data_set, position)
-    # def process_basic_data_type(self, data_set, position):
-    #def process_assignment(self, data_set, position)
+    def process_arithmetic_operations(self, data_set, position):
+        data_set.current_expression.expression_list.append(data_set.current_arithm_op)
+        return AfterExpressionOperator, data_set
 
-###################################################
+
+
+    ###################################################
 ######### FUNCTION CALL #########################
 ##################################################
 
 class AfterFunctionCallOpenBracketState(State):
-    #def process_opening_curly_bracket(self, data_set, position)
-    #def process_closing_curly_bracket(self, data_set, position)
-    #def process_opening_square_bracket(self, data_set, position)
-    #def process_closing_square_bracket(self, data_set, position)
 
     def process_opening_bracket(self, data_set, position):
-        data_set.bracket_state += 1
-        data_set.expression_list.append('(')
+        data_set.current_expression.bracket_state += 1
+        data_set.current_expression.expression_list.append('(')
         return AfterExpressionOpenBracket(), data_set
 
     def process_closing_bracket(self, data_set, position):
         # function has no parameters
         # check whether this coinside with func declaration should be later
+        data_set.subexpressions.pop()
         return AfterExpressionOperand(), data_set
 
     def process_identifier(self, data_set, position):
-        data_set.expression_list.append(data_set.current_identifier)
+        type = searchIdentifier(data_set.currentBlock, data_set.current_identifier)
+        if type is None:
+            raise UnknownIdentifierError()
+        if isinstance(type, Array):
+            raise NotImplemented()
+        elif isinstance(type, SimpleType):
+            data_set.expression_list.append(type)
+            return AfterExpressionOperand(), data_set
+        elif isinstance(type, Function):
+            function_call = FunctionCall()
+            function_call.function = type
+            data_set.current_expression.expression_list.append(function_call)
+            data_set.current_expression = Subexpression()
+            data_set.subexpressions.append(data_set.current_expression)
+            data_set.current_expression.expression_type = "expression_param"
+            return AfterFunctionCallNameState(), data_set
+        else:
+            assert False
+
+    def process_number(self, data_set, position):
+        data_set.expression_list.append(data_set.current_number)
         return AfterExpressionOperand(), data_set
 
-    #def process_basic_data_type(self, data_set, position)
-    #def process_assignment(self, data_set, position)
+    def process_string_literal(self, data_set, position):
+        data_set.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
 
 
 class AfterFunctionCallNameState(State):
-    #def process_opening_curly_bracket(self, data_set, position)
-    #def process_closing_curly_bracket(self, data_set, position)
-    #def process_opening_square_bracket(self, data_set, position)
-    #def process_closing_square_bracket(self, data_set, position)
-
     def process_opening_bracket(self, data_set, position):
-        data_set.expression_type = 'function_param'
         return (AfterFunctionCallOpenBracketState(), data_set)
-
-    # def process_closing_bracket(self, data_set, position):
-    # def process_comma(self, data_set, position)
-    # def process_semicolon(self, data_set, position)
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-    # def process_identifier(self, data_set, position):
-    # def process_basic_data_type(self, data_set, position)
-    #def process_assignment(self, data_set, position)
 
 
 ###################################################
@@ -308,26 +365,28 @@ class InitialState(State):
             raise UnexpectedIdentifierError('}')
         return InitialState(), data_set
 
-    # def process_opening_square_bracket(self, data_set, position):
-    # def process_closing_square_bracket(self, data_set, position):
-    # def process_opening_bracket(self, data_set, position):
-    # def process_closing_bracket(self, data_set, position):
-    # def process_comma(self, data_set, position):
-    # def process_semicolon(self, data_set, position):
 
     def process_if(self, data_set, position):
         data_set.currentIf = If()
         data_set.current_block.instructions.append(data_set.currentIf)
+        data_set.current_expression = Subexpression()
+        data_set.current_expression.expression_type = 'predicate'
+        data_set.subexpressions(data_set.current_expression)
         return AfterIfWhileState(), data_set
 
     def process_while(self, data_set, position):
         data_set.current_while_loop = WhileLoop()
         data_set.current_block.instructions.append(data_set.currentWhileLoop)
+        data_set.current_expression = Subexpression()
+        data_set.current_expression.expression_type = 'predicate'
+        data_set.subexpressions(data_set.current_expression)
         return AfterIfWhileState(), data_set
 
     def process_return(self, data_set, position):
-        data_set.expression
-        return (AfterReturnWordState(), data_set)
+        data_set.current_expression = Subexpression()
+        data_set.current_expression.expression_type = 'return_expression'
+        data_set.subexpressions(data_set.current_expression)
+        return AfterReturnWordState(), data_set
 
     def process_identifier(self, data_set, position):
     # this identifier is earlier declared: it must be function or variable in the
@@ -342,14 +401,24 @@ class InitialState(State):
             # assignment
             return (AfterArrayAtStartState(), data_set)
         elif isinstance(obj, Function):
-            #function call
-            current_func_call = FunctionCall()
-            data_set.current_block.instructions.append(current_func_call)
+            function_call = FunctionCall()
+            function_call.function = type
+            data_set.current_expression.expression_list.append(function_call)
+            data_set.current_expression = Subexpression()
+            data_set.subexpressions.append(data_set.current_expression)
+            data_set.current_expression.expression_type = "expression_param"
             return AfterFunctionCallNameState(), data_set
 
     def process_basic_data_type(self, data_set, position):
          return AfterSTypeInDeclState(), data_set
-    #def process_assignment(self, data_set, position)
+
+    def process_print(self, data_set, position):
+        printOperator = bricks.PrintOperator()
+        data_set.current_expression = Subexpression()
+        data_set.current_expression.expression_type = 'print_operator'
+        data_set.subexpressions.append(data_set.current_expression)
+        data_set.current_block.instructions.append(printOperator)
+        return AfterReturnWordState(), data_set
 
 
 class AfterReturnWordState(State):
@@ -360,50 +429,47 @@ class AfterReturnWordState(State):
     ...
 
     '''
-    # def process_opening_curly_bracket(self, data_set, position)
-    # def process_closing_curly_bracket(self, data_set, position)
-    # def process_opening_square_bracket(self, data_set, position)
-    # def process_closing_square_bracket(self, data_set, position)
     def process_opening_bracket(self, data_set, position):
-        data_set.expression.expression_type = 'return_expression'
+        data_set.current_expression.expression_list.append('(')
+        data_set.current_expression.bracket_state += 1
         return AfterExpressionOpenBracket(), data_set
 
-    # def process_closing_bracket(self, data_set, position)
-    # def process_comma(self, data_set, position)
     def process_semicolon(self, data_set, position):
         raise FunctionMustReturnSomethingError(';')
 
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-
     def process_identifier(self, data_set, position):
-        data_set.expression.expression_type = 'return_value'
-        data_set.expression.expression_list.append(data_set.current_identifier)
-        return (AfterExpressionOperand(), data_set)
+        type = searchIdentifier(data_set.currentBlock, data_set.current_identifier)
+        if type is None:
+            raise UnknownIdentifierError()
+        if isinstance(type, Array):
+            raise NotImplemented()
+        elif isinstance(type, SimpleType):
+            data_set.current_expression_list.append(type)
+            return AfterExpressionOperand(), data_set
+        elif isinstance(type, Function):
+            function_call = FunctionCall()
+            function_call.function = type
+            data_set.current_expression.expression_list.append(function_call)
+            data_set.current_expression = Subexpression()
+            data_set.subexpressions.append(data_set.current_expression)
+            data_set.current_expression.expression_type = "expression_param"
+            return AfterFunctionCallNameState(), data_set
+        else:
+            assert False
 
-    # def process_basic_data_type(self, data_set, position):
-    #def process_assignment(self, data_set, position)
+    def process_number(self, data_set, position):
+        data_set.current_expression.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
+
+    def process_string_literal(self, data_set, position):
+        data_set.current_expression.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
+
 
 class AfterIfWhileState(State):
-    #def process_opening_curly_bracket(self, data_set, position)
-    #def process_closing_curly_bracket(self, data_set, position)
-    #def process_opening_square_bracket(self, data_set, position)
-    #def process_closing_square_bracket(self, data_set, position)
-
     def process_opening_bracket(self, data_set, position):
-        data_set.expression_type = 'predicate'
         return AfterIfWhileOpenBracketState(), data_set
 
-    # def process_closing_bracket(self, data_set, position):
-    # def process_comma(self, data_set, position)
-    # def process_semicolon(self, data_set, position)
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-    # def process_identifier(self, data_set, position):
-    # def process_basic_data_type(self, data_set, position):
-    #def process_assignment(self, data_set, position)
 
 class AfterIfWhileOpenBracketState(State):
     #def process_opening_curly_bracket(self, data_set, position)
@@ -412,8 +478,8 @@ class AfterIfWhileOpenBracketState(State):
     #def process_closing_square_bracket(self, data_set, position)
 
     def process_opening_bracket(self, data_set, position):
-        data_set.bracket_state += 1
-        data_set.expression_list.append('(')
+        data_set.current_expression.bracket_state += 1
+        data_set.current_expression.expression_list.append('(')
         return AfterExpressionOpenBracket(), data_set
 
     def process_closing_bracket(self, data_set, position):
@@ -422,23 +488,32 @@ class AfterIfWhileOpenBracketState(State):
         raise EmptyBracketsAreNotAllowedError()
 
     def process_identifier(self, data_set, position):
-        type = searchIdentifier(data_set.current_block, data_set.current_identifier)
+        type = searchIdentifier(data_set.currentBlock, data_set.current_identifier)
         if type is None:
             raise UnknownIdentifierError()
         if isinstance(type, Array):
             raise NotImplemented()
         elif isinstance(type, SimpleType):
-            data_set.expression_list.append(data_set.current_identifier)
+            data_set.current_expression_list.append(type)
             return AfterExpressionOperand(), data_set
         elif isinstance(type, Function):
-            data_set.current_function = Function()
-            data_set.expression_list.append(data_set.current_function)
+            function_call = FunctionCall()
+            function_call.function = type
+            data_set.current_expression.expression_list.append(function_call)
+            data_set.current_expression = Subexpression()
+            data_set.subexpressions.append(data_set.current_expression)
+            data_set.current_expression.expression_type = "expression_param"
             return AfterFunctionCallNameState(), data_set
         else:
             assert False
 
-    # def process_basic_data_type(self, data_set, position)
-    #def process_assignment(self, data_set, position)
+    def process_number(self, data_set, position):
+        data_set.current_expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
+
+    def process_string_literal(self, data_set, position):
+        data_set.current_expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
 
 
 ###################################################
@@ -454,28 +529,38 @@ class AfterAssignmentSign(State):
     ...
 
     '''
-    #def process_opening_curly_bracket(self, data_set, position)
-    #def process_closing_curly_bracket(self, data_set, position)
 
     def process_opening_bracket(self, data_set, position):
-        data_set.expression.expression_type = 'assignment_value'
         return AfterExpressionOpenBracket(), data_set
 
-    # def process_closing_bracket(self, data_set, position)
-    # def process_comma(self, data_set, position)
-    #def process_semicolon(self, data_set, position)
-
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
 
     def process_identifier(self, data_set, position):
-        data_set.expression.expression_type = 'assignment_value'
-        data_set.expression.expression_list.append(data_set.current_identifier)
-        return (AfterExpressionOperand(), data_set)
+        type = searchIdentifier(data_set.current_block, data_set.current_identifier)
+        if type is None:
+            raise UnknownIdentifierError()
+        if isinstance(type, Array):
+            raise NotImplemented()
+        elif isinstance(type, SimpleType):
+            data_set.current_expression_list.append(type)
+            return AfterExpressionOperand(), data_set
+        elif isinstance(type, Function):
+            function_call = FunctionCall()
+            function_call.function = type
+            data_set.current_expression.expression_list.append(function_call)
+            data_set.current_expression = Subexpression()
+            data_set.subexpressions.append(data_set.current_expression)
+            data_set.current_expression.expression_type = "expression_param"
+            return AfterFunctionCallNameState(), data_set
+        else:
+            assert False
 
-    # def process_basic_data_type(self, data_set, position):
-    # def process_assignment(self, data_set, position):
+    def process_number(self, data_set, position):
+        data_set.current_expression.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
+
+    def process_string_literal(self, data_set, position):
+        data_set.current_expression.expression_list.append(data_set.current_number)
+        return AfterExpressionOperand(), data_set
 
 class AfterSVariableAtStartState(State):
     '''
@@ -486,39 +571,17 @@ class AfterSVariableAtStartState(State):
     ...
 
     '''
-    #def process_opening_curly_bracket(self, data_set, position)
-    #def process_closing_curly_bracket(self, data_set, position)
 
     def process_opening_square_bracket(self, data_set, position):
-        return (AfterArrayDeclOpenSquareBracket(), data_set)
-
-    #def process_closing_square_bracket(self, data_set, position):
-
-    #def process_opening_bracket(self, data_set, position)
-    #def process_closing_bracket(self, data_set, position)
-    #def process_comma(self, data_set, position)
-    #def process_semicolon(self, data_set, position):
-
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-
-    def process_identifier(self, data_set, position):
-        # create varable #TODO
-        return AfterNameInSTypeDeclState(), data_set
-
-    # def process_basic_data_type(self, data_set, position):
+        return AfterArrayDeclOpenSquareBracket(), data_set
     def process_assignment(self, data_set, position):
         data_set.current_assignment = AssignmentOperator()
         data_set.current_assignment.variable = data_set.current_identifier
         data_set.current_block.instructions.append(data_set.current_assignment)
+        data_set.current_expression = Subexpression()
+        data_set.current_expression.expression_type = 'assignment_value'
+        data_set.subexpressions.append(data_set.current_expression)
         return AfterAssignmentSign(), data_set
-
-# class AfterIfWhileState(object):
-#     def process(token, current_data_set):
-#
-# class AfterIfWhileState(object):
-#     def process(token, current_data_set):
 
 class AfterArrayAtStartState(State):
     '''
@@ -530,24 +593,8 @@ class AfterArrayAtStartState(State):
     ...
 
     '''
-    # def process_opening_curly_bracket(self, data_set, position)
-    # def process_closing_curly_bracket(self, data_set, position)
-
     def process_opening_square_bracket(self, data_set, position):
-        #TODO WHy???
-        raise UnexpectedIdentifierError('[')
-
-    # def process_closing_square_bracket(self, data_set, position)
-    # def process_opening_bracket(self, data_set, position)
-    # def process_closing_bracket(self, data_set, position)
-    # def process_comma(self, data_set, position)
-    # def process_semicolon(self, data_set, position)
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-    # def process_identifier(self, data_set, position)
-    #def process_basic_data_type(self, data_set, position):
-    # #def process_assignment(self, data_set, position)
+        raise NotImplemented
 
 
 ###################################################
@@ -556,26 +603,25 @@ class AfterArrayAtStartState(State):
 
 
 class AfterArrayDeclOpenSquareBracket(State):
-    # def process_opening_curly_bracket(self, data_set, position)
-    # def process_closing_curly_bracket(self, data_set, position)
-    # def process_opening_square_bracket(self, data_set, position)
+    '''
+    example
+    ...
+    int a = 3
+    int[...<-
+    ...
+    '''
     def process_closing_square_bracket(self, data_set, position):
         raise ArrayMustHaveFixedSizeError(position, data_set.current_identifier)
-    # def process_opening_bracket(self, data_set, position)
-    # def process_closing_bracket(self, data_set, position)
-    # def process_comma(self, data_set, position)
-    # def process_semicolon(self, data_set, position)
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
 
     def process_identifier(self, data_set, position):
         #TODO implement checking whether identifier is constant
         raise NotImplemented()
 
-    # def process_basic_data_type(self, data_set, position):
-    #def process_assignment(self, data_set, position)
+    def process_number(self, data_set, position):
+        raise NotImplemented()
 
+    def process_string_literal(self, data_set, position):
+        raise ArrayMustHaveFixedSizeError(position, data_set.current_identifier)
 
 
 class AfterNameInSTypeDeclState(State):
@@ -587,21 +633,20 @@ class AfterNameInSTypeDeclState(State):
     ...
 
     '''
-    # def process_opening_curly_bracket(self, data_set, position)
-    # def process_closing_curly_bracket(self, data_set, position)
-    # def process_opening_square_bracket(self, data_set, position)
-    # def process_closing_square_bracket(self, data_set, position)
-    # def process_opening_bracket(self, data_set, position)
-    # def process_closing_bracket(self, data_set, position)
-    # def process_comma(self, data_set, position)
+
+    def process_opening_bracket(self, data_set, position):
+        # function declaration
+        raise NotImplemented
+
     def process_semicolon(self, data_set, position):
         return (InitialState(), data_set)
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
-    #def process_identifier(self, data_set, position)
-    #def process_basic_data_type(self, data_set, position):
+
     def process_assignment(self, data_set, position):
+        data_set.current_assignment = AssignmentOperator()
+        data_set.current_assignment.variable = data_set.current_variable
+        data_set.current_expression = Subexpression()
+        data_set.current_expression.expression_type = 'assignment_value'
+        data_set.subexpressions.append(data_set.current_expression)
         return AfterAssignmentSign(), data_set
 
 
@@ -614,27 +659,17 @@ class AfterSTypeInDeclState(State):
     ...
 
     '''
-    # def process_opening_curly_bracket(self, data_set, position)
-    # def process_closing_curly_bracket(self, data_set, position)
     def process_opening_square_bracket(self, data_set, position):
         return (AfterArrayDeclOpenSquareBracket(), data_set)
-    # def process_closing_square_bracket(self, data_set, position)
-    # def process_opening_bracket(self, data_set, position)
-    # def process_closing_bracket(self, data_set, position)
-    # def process_comma(self, data_set, position)
-    # def process_semicolon(self, data_set, position)
-    # def process_if(self, data_set, position)
-    # def process_while(self, data_set, position)
-    # def process_return(self, data_set, position)
+
     def process_identifier(self, data_set, position):
         type = searchIdentifier(data_set.current_block, data_set.current_identifier)
         if type is None:
-            data_set.current_block.context.variables[data_set.current_identifier] = eval(data_set.var_type+'()')
+            data_set.current_variable = eval("bricks." + data_set.var_type.capitalize()+'()')
+            data_set.current_block.context.variables[data_set.current_identifier] = data_set.current_variable
             return AfterNameInSTypeDeclState(), data_set
         else:
             raise IdentifierAlreadyExistsError(position)
-    #def process_basic_data_type(self, data_set, position)
-    #def process_assignment(self, data_set, position)
 
 
 class Syntan(object):
@@ -656,6 +691,8 @@ class Syntan(object):
 
         while lexer.next_available():
             new_token, position = lexer.next_token()
+            print new_token
+
             #punctuation
             if new_token == '{':
                 process = state.process_opening_curly_bracket
@@ -680,15 +717,31 @@ class Syntan(object):
                 process = state.process_while
             elif new_token == 'return':
                 process = state.process_return
+            elif new_token == 'print':
+                process = state.process_print
+            # arithmetic operations
+            elif new_token == '+':
+                process = state.process_arithmetic_operations
+                curDataSet.current_arithm_op = new_token
             elif new_token in self.basic_data_types:
                 curDataSet.var_type = new_token
                 process = state.process_basic_data_type
+            elif new_token == '=':
+                process = state.process_assignment
+            elif new_token.startswith("//"):
+                pass
+            elif new_token.startswith('"') and new_token.endswith('"'):
+                curDataSet.current_string_literal = new_token
+                process = state.process_string_literal
+            elif new_token.isdigit():
+                curDataSet.current_number = new_token
+                process = state.process_number
             else:
                 curDataSet.current_identifier = new_token
                 process = state.process_identifier
 
             state, curDataSet = process(curDataSet, position)
-            return mainFunction
+        return mainFunction
 
 
 

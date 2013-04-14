@@ -134,7 +134,7 @@ class Lexer(object):
             if self.ignoring_list.has_key(to_return):
                 self.ignoring_sequence = to_return
 
-        return (to_return, (self.n_new_lines, self.current_pos - self.last_new_line))
+        return (to_return.strip(), (self.n_new_lines, self.current_pos - self.last_new_line))    #TODO to smth with strip
 
     def next_available(self):
         return self.current_pos < len(self.source)
@@ -152,9 +152,9 @@ class PreprocessedLexer(Lexer):
     def next_available(self):
         return self.current_token_number < len(self.token_list)
 
-lexer = Lexer(ss)
-while lexer.next_available():
-    print lexer.next_token()
+# lexer = Lexer(ss)
+# while lexer.next_available():
+#     print lexer.next_token()
 
 
 
