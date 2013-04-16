@@ -2,6 +2,20 @@ from syntan import Syntan
 
 __author__ = 'gleb23'
 
+source = '''
+{
+int a = 32;
+{
+// int b = 0; // this causes problems
+while (a) {
+a = a - 1;
+print a;
+}
+}
+}
+
+'''
+
 class Executor(object):
     def __init__(self, source):
         self.source = source
@@ -9,3 +23,6 @@ class Executor(object):
         flowTree = Syntan(self.source).parse()
         for instruction in flowTree.block.instructions:
             instruction.execute()
+
+print '--------------- Execution -----------------'
+Executor(source).execute()

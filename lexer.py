@@ -1,39 +1,13 @@
 __author__ = 'gleb23'
 
-ss = '''
-int odd(int i)
+source = '''
 {
-  return 2 * i + 1;
+int a = (3+2);
+{
+print a;
+}
 }
 
-int square(int i)
-{
-  return i * i;
-}
-
-typedef boost::counting_iterator <int> counter;
-typedef boost::transform_iterator <int (*)(int), counter> transformer;
-
-transformer odds(int n)
-{
-  return transformer(counter(n), odd);
-}
-
-// comment
-transformer squares(int n)
-{
-  return transformer(counter(n), square);
-}
-
-int main()
-{
-  using namespace std;
-
-  cout << "Enter vector length: ";
-  int n; cin >> n;
-
-  cout << inner_product( odds(0), odds(n), squares(0), 0 ) << endl;
-}
 '''
 # ss = ''' /*a*/
 
@@ -99,6 +73,7 @@ class Lexer(object):
                 elif self.double_sign_delimiters.has_key(current_sym):
                     self.double_sign = current_sym
                     if self.current_pos > self.current_token_start:
+                        #return token before this symbol
                         to_return = self.source[self.current_token_start:self.current_pos]
                         self.current_token_start = self.current_pos
                     self.current_pos += 1
@@ -122,15 +97,22 @@ class Lexer(object):
                     self.n_new_lines += 1
                     self.last_new_line = self.current_pos
                     #delimiter consists of two symbols
-                if current_sym in self.double_sign_delimiters[self.double_sign]:
+                if self.double_sign_delimiters.has_key(self.double_sign) and current_sym in self.double_sign_delimiters[self.double_sign]:
                     to_return = self.double_sign + current_sym
                     self.current_token_start = self.current_pos + 1
+                    self.double_sign = None
                 #delimiter consists of one symbol
                 else:
                     to_return = self.double_sign
                     self.current_token_start = self.current_pos
+                    if current_sym in self.single_sign_delimiters:
+                        self.double_sign = current_sym
+                    elif current_sym in self.ignorable_delimiters:
+                        self.double_sign = None
+                        self.current_token_start += 1
+                    else:
+                        self.double_sign = None
                 self.current_pos += 1
-                self.double_sign = None
             if self.ignoring_list.has_key(to_return):
                 self.ignoring_sequence = to_return
 
@@ -152,9 +134,9 @@ class PreprocessedLexer(Lexer):
     def next_available(self):
         return self.current_token_number < len(self.token_list)
 
-# lexer = Lexer(ss)
-# while lexer.next_available():
-#     print lexer.next_token()
+lexer = Lexer(source)
+while lexer.next_available():
+    print lexer.next_token()
 
 
 

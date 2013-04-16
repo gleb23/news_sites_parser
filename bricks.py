@@ -1,4 +1,4 @@
-from errs import IndexOutOfBoundsError
+from errs import IndexOutOfBoundsError, TypeMismatch
 
 __author__ = 'gleb23'
 
@@ -6,8 +6,13 @@ class Type(object):
     def __init__(self):
         super(Type, self).__init__()
 
+    def to_Bool(self):
+        raise TypeMismatch()
+
+    def to_Int(self):
+        raise TypeMismatch()
+
 class SimpleType(Type):
-    _value = None
     def __init__(self, value):
         super(SimpleType, self).__init__()
         self.value = value
@@ -16,25 +21,31 @@ class SimpleType(Type):
         return self._value
 
     def execute(self):
-        return self.value
+        return self
+
 
 class Int(SimpleType):
     def __init__(self, value = 0):
         super(Int, self).__init__(value)
-
+        #self.value = property(SimpleType.getx, self.setx)
+    #TODO TYPE CHECKING!!! PyC is not that fucking python
     def setx(self, value):
         if isinstance(value, int):
             SimpleType._value = value
         else:
             raise TypeError
 
+    def to_Bool(self):
+        return Bool(self.value != 0)
 
-    value = property(SimpleType.getx, setx)
+    def to_Int(self):
+        return self
 
 
 class Bool(SimpleType):
     def __init__(self, value = False):
         super(Bool, self).__init__(value)
+        #self.value = property(SimpleType.getx, self.setx)
 
     def setx(self, value):
         try:
@@ -42,12 +53,21 @@ class Bool(SimpleType):
         except ValueError:
             raise TypeError
 
-    value = property(SimpleType.getx, setx)
+    def to_Bool(self):
+        return self
+
+    def to_Int(self):
+        if self.value:
+            return Int(1)
+        else:
+            return Int(0)
+
 
 class String(SimpleType):
     def __init__(self, value = ""):
         super(String, self).__init__(value)
         self._x = None
+        #self.value = property(SimpleType.getx, self.setx)
 
     def setx(self, value):
         if isinstance(value, basestring):
@@ -55,7 +75,9 @@ class String(SimpleType):
         else:
             raise TypeError()
 
-    value = property(SimpleType.getx, setx)
+    def to_Bool(self):
+        return Bool(self.value != "")
+
 
 class Array(Type):
     def __init__(self, baseType, size):
@@ -81,10 +103,10 @@ class Array(Type):
 
 
 class Expression(object):
-    parent_expression = None
-    bracket_state = 0
     def __init__(self):
         super(Expression, self).__init__()
+        # self.parent_expression = None
+        # self.bracket_state = 0
 
     def execute(self):
         return 0; #stub
@@ -101,10 +123,11 @@ class FunctionCall(Expression):
         return self.function.execute()
 
     def __str__(self):
-        str = 'Function call(function: ' + str(self.function) + ';'
+        s = 'Function call(function: ' + str(self.function) + ';'
         for arg in self.args:
-            str += (str(arg) + ', ')
-        str += ')'
+            s += (str(arg) + ', ')
+        s += ')'
+        return s
 
 class ReturnExpression(object):
     def __init__(self, exp):
@@ -117,10 +140,10 @@ class ReturnExpression(object):
         return 'Return expression(' + self.exp + ')'
 
 class BinaryOperator(Expression):
-    exp1 = None
-    exp2 = None
     def __init__(self):
         super(BinaryOperator, self).__init__()
+        self.exp1 = None
+        self.exp2 = None
 
 
 class Sum(BinaryOperator):
@@ -128,10 +151,32 @@ class Sum(BinaryOperator):
         super(Sum, self).__init__()
 
     def execute(self):
-        pass
+        a = self.exp1.execute()
+        b = self.exp2.execute()
+        if isinstance(a, String) and isinstance(b, String):
+            return String(a + b)
+        elif isinstance(a, String) or isinstance(b, String):
+            raise TypeMismatch()
+        else:
+            return Int(a.to_Int().value + b.to_Int().value)
 
     def __str__(self):
         return '(' + str(self.exp1) + '+' + str(self.exp2) + ')'
+
+class Minus(BinaryOperator):
+    def __init__(self):
+        super(Minus, self).__init__()
+
+    def execute(self):
+        a = self.exp1.execute()
+        b = self.exp2.execute()
+        if isinstance(a, String) or isinstance(b, String):
+            raise TypeMismatch()
+        else:
+            return Int(a.to_Int().value - b.to_Int().value)
+
+    def __str__(self):
+        return '(' + str(self.exp1) + '-' + str(self.exp2) + ')'
 
 class Condition(object):
     def execute(self):
@@ -168,20 +213,21 @@ class Block(object):
         return s
 
 class WhileLoop(object):
-    def __init__(self, condition, body):
+    def __init__(self, condition = None, body = None):
         self.condition = condition
         self.body = body
 
     def execute(self):
-        while self.condition.execute() == True:
-            self.body.execute
+        while self.condition.execute().to_Bool().value:
+            self.body.execute()
 
     def __str__(self):
-        str = 'While {\n'
-        str += 'CONDITION: '
-        str += str(self.condition)
-        str += str(self.body)
-        str += '}'
+        s = 'While {\n'
+        s += 'CONDITION: '
+        s += str(self.condition)
+        s += str(self.body)
+        s += '}'
+        return s
 
 class If(object):
     def __init__(self, condition = None, body = None):
@@ -189,21 +235,23 @@ class If(object):
         self.body = body
 
     def execute(self):
-        if self.condition == True:
+        if self.condition.execute().to_Bool().value:
             self.body.execute()
 
     def __str__(self):
-        str = 'If {\n'
-        str += 'CONDITION: '
-        str += str(self.condition)
-        str += str(self.body)
-        str += '}'
+        s = 'If {\n'
+        s += 'CONDITION: '
+        s += str(self.condition)
+        s += str(self.body)
+        s += '}'
+        return s
 
 
 class Context(object):
-    constants = {}
-    variables = {}
-    functions = {}
+    def __init__(self):
+        self.constants = {}
+        self.variables = {}
+        self.functions = {}
 
     def __str__(self):
         s = 'Context:{'
@@ -249,11 +297,18 @@ class AssignmentOperator(object):
         self.exp = None
 
     def execute(self):
-        self.variable.value = self.exp.execute()
+        if isinstance(self.variable, String) and isinstance(self.exp, String):
+            self.variable.value = self.exp.execute().value
+        elif isinstance(self.variable, String) or isinstance(self.exp, String):
+            raise TypeMismatch()
+        elif isinstance(self.variable, Int):
+            self.variable.value = self.exp.execute().to_Int().value
+        elif isinstance(self.variable, Bool):
+            self.variable.value = self.exp.execute().to_Bool().value
 
 class PrintOperator(object):
     def __init__(self):
         self.value = None
 
     def execute(self):
-        print self.value
+        print self.value.execute().value

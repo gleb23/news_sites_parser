@@ -11,7 +11,7 @@ class UnexpectedIdentifierError(CompileError):
         self.wrongSymbol = wrongSymbol
 
     def __str__(self):
-        return 'Unexpected identifier ' + str(self.wrongSymbol) + ' ;'
+        return 'Unexpected identifier ' + str(self.wrongSymbol) + ' '
 
 class ErrorInExpression(UnexpectedIdentifierError):
     pass
@@ -25,19 +25,22 @@ class UnknownIdentifierError(CompileError):
         return 'Unknown identifier ' + str(self.value) + ';'
 
 
-class FunctionMustReturnSomethingError(object):
+class FunctionMustReturnSomethingError(CompileError):
     pass
 
-class EmptyBracketsAreNotAllowedError(object):
+class EmptyBracketsAreNotAllowedError(CompileError):
     pass
 
-class ArrayMustHaveFixedSizeError(object):
+class ArrayMustHaveFixedSizeError(CompileError):
     pass
 
-class IdentifierAlreadyExistsError(object):
+class IdentifierAlreadyExistsError(CompileError):
     pass
 
-class RuntimeError(object):
+class TypeMismatch(CompileError):
+    pass
+
+class RuntimeError(BaseException):
     pass
 
 class VariableNotInitializedError(RuntimeError):
