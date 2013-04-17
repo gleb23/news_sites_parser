@@ -8,12 +8,14 @@ Language being interpreted is a subset of c++ language
 <Type>::=<SimpleType>|<Array>
 <SimpleType>::= int|bool|string
 <Array>::=<SimpleType>\[\]
+<Operation>::=<Operation_а>|<Operation_l>|<Operation_cmp>
 <Operation_а>::= +|–|*|/|%
 <Operation_l>::= ! |&&| \|\|
 <Operation_cmp>::=<|>|>=|<=| == | !=
 <Instruction>::=[{<WhileCycle>|<If>|<Assignment>|<Print>|<Get>}]
 <WhileCycle>::= While(<Condition>) <Block>
 <If>::= if(<Condition>) <Block>
+<Expression>::=<Expression><Opearation><Expression>|<FunctionCall>|<Variable>|<Number>
 <Assignment>::=<Identifier> = <Expression>
 <Print>::= print <Expression>
 <Get>::= get <Expression>

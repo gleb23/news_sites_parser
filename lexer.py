@@ -134,9 +134,9 @@ class PreprocessedLexer(Lexer):
     def next_available(self):
         return self.current_token_number < len(self.token_list)
 
-lexer = Lexer(source)
-while lexer.next_available():
-    print lexer.next_token()
+# lexer = Lexer(source)
+# while lexer.next_available():
+#     print lexer.next_token()
 
 
 

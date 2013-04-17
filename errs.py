@@ -11,7 +11,7 @@ class UnexpectedIdentifierError(CompileError):
         self.wrongSymbol = wrongSymbol
 
     def __str__(self):
-        return 'Unexpected identifier ' + str(self.wrongSymbol) + ' '
+        return 'Unexpected identifier ' + str(self.wrongSymbol) + ' ' + str(self.position)
 
 class ErrorInExpression(UnexpectedIdentifierError):
     pass
@@ -22,7 +22,7 @@ class UnknownIdentifierError(CompileError):
         self.value = value
 
     def __str__(self):
-        return 'Unknown identifier ' + str(self.value) + ';'
+        return 'Unknown identifier ' + str(self.value) + ' ' + str(self.position)
 
 
 class FunctionMustReturnSomethingError(CompileError):
@@ -38,7 +38,10 @@ class IdentifierAlreadyExistsError(CompileError):
     pass
 
 class TypeMismatch(CompileError):
-    pass
+    def __init__(self, position = None):
+        super(TypeMismatch, self).__init__(position)
+
+
 
 class RuntimeError(BaseException):
     pass

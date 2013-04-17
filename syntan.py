@@ -45,6 +45,8 @@ def build_expression_tree(reverse_expression_list, bracket_state = 0):
                 return Int(int(float(val)))
             except ValueError:
                 assert False
+        elif isinstance(val, basestring):
+            return String(val[1:len(val)-1])
         else:
             return val
 
@@ -189,7 +191,7 @@ class AfterExpressionOpenBracket(State):
         return AfterExpressionOperand(), data_set
 
     def process_string_literal(self, data_set, position):
-        data_set.expression_list.insert(0, (data_set.current_number, data_set.current_expression.bracket_state))
+        data_set.expression_list.insert(0, (data_set.current_string_literal, data_set.current_expression.bracket_state))
         return AfterExpressionOperand(), data_set
 
 
@@ -232,7 +234,7 @@ class AfterExpressionOperator(State):
         return AfterExpressionOperand(), data_set
 
     def process_string_literal(self, data_set, position):
-        data_set.current_expression.expression_list.insert(0, (data_set.current_number,data_set.current_expression.bracket_state))
+        data_set.current_expression.expression_list.insert(0, (data_set.current_string_literal,data_set.current_expression.bracket_state))
         return AfterExpressionOperand(), data_set
 
 
@@ -357,7 +359,7 @@ class AfterFunctionCallOpenBracketState(State):
         return AfterExpressionOperand(), data_set
 
     def process_string_literal(self, data_set, position):
-        data_set.expression_list.insert(0, (data_set.current_number, data_set.current_expression.bracket_state))
+        data_set.expression_list.insert(0, (data_set.current_string_literal, data_set.current_expression.bracket_state))
         return AfterExpressionOperand(), data_set
 
 
@@ -487,7 +489,7 @@ class AfterReturnWordState(State):
         return AfterExpressionOperand(), data_set
 
     def process_string_literal(self, data_set, position):
-        data_set.current_expression.expression_list.insert(0, (data_set.current_number, data_set.current_expression.bracket_state))
+        data_set.current_expression.expression_list.insert(0, (data_set.current_string_literal, data_set.current_expression.bracket_state))
         return AfterExpressionOperand(), data_set
 
 
@@ -540,7 +542,7 @@ class AfterIfWhileOpenBracketState(State):
         return AfterExpressionOperand(), data_set
 
     def process_string_literal(self, data_set, position):
-        data_set.current_expression_list.insert(0, (data_set.current_number, data_set.current_expression.bracket_state))
+        data_set.current_expression_list.insert(0, (data_set.current_string_literal, data_set.current_expression.bracket_state))
         return AfterExpressionOperand(), data_set
 
 
@@ -604,7 +606,7 @@ class AfterAssignmentSign(State):
         return AfterExpressionOperand(), data_set
 
     def process_string_literal(self, data_set, position):
-        data_set.current_expression.expression_list.insert(0, data_set.current_number, data_set.current_expression.bracket_state)
+        data_set.current_expression.expression_list.insert(0, (data_set.current_string_literal, data_set.current_expression.bracket_state))
         return AfterExpressionOperand(), data_set
 
 class AfterSVariableAtStartState(State):
@@ -728,7 +730,7 @@ class Syntan(object):
     # type_checking !!! when 'compiling'
     # do not embrace one operand with brackets
     '''
-    basic_data_types = ['int', 'bool', 'String', 'void']
+    basic_data_types = ['int', 'bool', 'string', 'void']
 
     def __init__(self, source):
         self.source = source
@@ -742,7 +744,7 @@ class Syntan(object):
 
         while lexer.next_available():
             new_token, position = lexer.next_token()
-            #print new_token
+            print new_token, position
 
             #punctuation
             if new_token == '{':
