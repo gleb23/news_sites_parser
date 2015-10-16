@@ -14,6 +14,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -82,7 +83,7 @@ public class NewsParser {
      * or parser class is not found
      */
     public Article parse(String url) throws URLNotSpecifiedException,
-            IOException, URLNotSupportedException, ConfigException {
+            IOException, URLNotSupportedException, ConfigException, URISyntaxException {
         DefaultParser parserForSite = findParserForSite(url);
         return parserForSite.parse(url);
     }
@@ -103,9 +104,9 @@ public class NewsParser {
      * if errors when parsing parsers.xml file occured 
      * or parser class is not found 
      */
-    public List<String> getLinksFromMainPage(String url, int nLinks) 
-            throws IOException, URLNotSpecifiedException, 
-            URLNotSupportedException, ConfigException {
+    public List<String> getLinksFromMainPage(String url, int nLinks)
+            throws IOException, URLNotSpecifiedException,
+            URLNotSupportedException, ConfigException, URISyntaxException {
         DefaultParser parserForSite = findParserForSite(url);
         return parserForSite.getLinksFromMainPage(nLinks);
     }
@@ -123,12 +124,12 @@ public class NewsParser {
      * or parser class is not found
      * 
      */
-    private DefaultParser findParserForSite(String url) throws URLNotSupportedException, URLNotSpecifiedException, ConfigException {
+    private DefaultParser findParserForSite(String url) throws URLNotSupportedException, URLNotSpecifiedException, ConfigException, URISyntaxException {
         if (url == null) {
             throw new URLNotSpecifiedException(); 
         }
         // TODO change location of xml!!!
-        File fXmlFile = new File("parsers.xml");
+        File fXmlFile = new File(ClassLoader.getSystemResource("parsers.xml").toURI());
 	DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 	DocumentBuilder dBuilder;
         org.w3c.dom.Document doc;

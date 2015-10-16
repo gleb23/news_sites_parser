@@ -1,6 +1,7 @@
 package ua.hlibbabii;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.List;
 
 /**
@@ -19,7 +20,7 @@ public class ParserTest {
      * @throws NewsParser.URLNotSupportedException
      * @throws NewsParser.ConfigException
      */
-    public static void main(String[] args) throws IOException, NewsParser.URLNotSpecifiedException, NewsParser.URLNotSupportedException, NewsParser.ConfigException {
+    public static void main(String[] args) throws IOException, NewsParser.URLNotSpecifiedException, NewsParser.URLNotSupportedException, NewsParser.ConfigException, URISyntaxException {
 //        Parser parser = new Parser();
 //        Article art = parser.parse("http://www.reuters.com/article/2013/06/13/us-egypt-brotherhood-bread-specialreport-idUSBRE95C07P20130613");
 //        System.out.println(art.toString());

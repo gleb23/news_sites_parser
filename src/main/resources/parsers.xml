@@ -1,0 +1,23 @@
+<parsers>
+    <parser-mapping>
+        <url>http://www.reuters.com</url>
+        <class>siteParsers.ReutersComParser</class>
+    </parser-mapping>
+    <parser-mapping>
+        <url>http://www.nytimes.com</url>
+        <class>siteParsers.NytimesComParser</class>
+    </parser-mapping>
+    <parser-mapping>
+        <url>http://www.sciencenews.org</url>
+        <class>siteParsers.SciencenewsOrgParser</class>
+    </parser-mapping>
+    <parser-mapping>
+        <url>http://www.washingtonpost.com/blogs</url>
+        <class>siteParsers.WashingtonpostComBlogsParser</class>
+    </parser-mapping>
+    <parser-mapping><!-- articles, opinions -->
+        <url>http://www.washingtonpost.com</url>
+        <class>siteParsers.WashingtonpostComParser</class>
+    </parser-mapping>
+    <!-- Add more parsers here-->
+</parsers>
