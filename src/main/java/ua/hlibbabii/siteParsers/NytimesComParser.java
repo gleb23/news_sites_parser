@@ -11,6 +11,7 @@ import ua.hlibbabii.SiteMetaData;
  *
  * @author gleb23
  */
+//TODO store xpathes in jsons
 public class NytimesComParser extends DefaultParser {
     private static final SiteMetaData siteMetaData = new SiteMetaData(
         "nyt_headline"                                              // title
