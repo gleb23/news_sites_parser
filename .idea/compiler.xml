@@ -25,8 +25,8 @@
         <module name="news_sites_parser" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="news_sites_parser" target="1.5" />
+    <bytecodeTargetLevel target="1.7">
+      <module name="news_sites_parser" target="1.7" />
     </bytecodeTargetLevel>
   </component>
 </project>
