@@ -1,6 +1,7 @@
 package ua.hlibbabii;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.
@@ -10,9 +11,51 @@ import java.io.IOException;
  * To change this template use File | Settings | File Templates.
  */
 public class ParserTest {
-    public static void main(String[] args) throws IOException, Parser.URLNotSpecifiedException, Parser.URLNotSupportedException {
-        Parser parser = new Parser("http://www.nytimes.com/2013/04/17/us/politics/toxic-ricin-detected-on-mail-sent-to-senator.html?ref=politics");
-        Article art = parser.parse();
-        System.out.println(art.toString());
+    /**
+     *
+     * @param args
+     * @throws IOException
+     * @throws NewsParser.URLNotSpecifiedException
+     * @throws NewsParser.URLNotSupportedException
+     * @throws NewsParser.ConfigException
+     */
+    public static void main(String[] args) throws IOException, NewsParser.URLNotSpecifiedException, NewsParser.URLNotSupportedException, NewsParser.ConfigException {
+//        Parser parser = new Parser();
+//        Article art = parser.parse("http://www.reuters.com/article/2013/06/13/us-egypt-brotherhood-bread-specialreport-idUSBRE95C07P20130613");
+//        System.out.println(art.toString());
+        NewsParser parser = new NewsParser();
+        
+        List<String> allLinks = parser.getLinksFromMainPage("http://www.washingtonpost.com", 5);
+        for (String link : allLinks) {
+            System.out.println(link);            
+        }
+        for (String link : allLinks) {
+            parser = new NewsParser();
+            Article art = parser.parse(link);
+            System.out.println("--------------------"); 
+            System.out.println(art.toString());            
+        }
+        
+        allLinks = parser.getLinksFromMainPage("http://www.reuters.com", 5);
+        for (String link : allLinks) {
+            System.out.println(link);            
+        }
+        for (String link : allLinks) {
+            parser = new NewsParser();
+            Article art = parser.parse(link);
+            System.out.println("--------------------"); 
+            System.out.println(art.toString());            
+        }
+        
+        allLinks = parser.getLinksFromMainPage("http://www.sciencenews.org", 5);
+        for (String link : allLinks) {
+            System.out.println(link);            
+        }
+        for (String link : allLinks) {
+            parser = new NewsParser();
+            Article art = parser.parse(link);
+            System.out.println("--------------------"); 
+            System.out.println(art.toString());            
+        }
     }
 }

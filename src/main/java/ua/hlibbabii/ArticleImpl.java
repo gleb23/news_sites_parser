@@ -5,6 +5,8 @@ import java.util.Date;
 import java.util.List;
 
 /**
+ * Implementation of article interface
+ * 
  * Created with IntelliJ IDEA.
  * User: gleb23
  * Date: 06.04.13
@@ -140,7 +142,7 @@ public class ArticleImpl implements Article {
         } else {
             summary.append("Links: ");
             for (String link : links) {
-                summary.append(link + "   ");
+                summary.append(link + "\n");
             }
         }
         summary.append("\n");

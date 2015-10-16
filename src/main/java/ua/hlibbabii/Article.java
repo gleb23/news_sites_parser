@@ -3,13 +3,15 @@ package ua.hlibbabii;
 import java.util.List;
 
 /**
+ * Interface for article class.
+ * 
  * Created with IntelliJ IDEA.
  * User: gleb23
  * Date: 06.04.13
  * Time: 23:05
  * To change this template use File | Settings | File Templates.
  */
-interface Article {
+public interface Article {
     /**
      * Returns the title of this article, if no article available, returns null
      * @return the title of this article
